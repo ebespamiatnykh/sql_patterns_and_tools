@@ -1,5 +1,5 @@
 ------------------------------------------------------------
--- пример использования:
+-- 1. use case
 
 declare @start_time datetime = getdate()
       , @params     xml
@@ -26,46 +26,12 @@ insert into dbo.queries_log( proc_name, params, step, ds, dt, rows_affected, beg
 begin catch  
   insert dbo.queries_log( proc_name, params, step, ds, dt, [message], begin_rid )  
     select 'p_name_1', @params, -100, @start_time, getdate(), error_message(), @log_rid
-    
-------------------------------------------------------------
--- скрипт создания таблицы лога:
 
-if object_id( N'dbo.queries_log', 'U' ) is not null
-  drop table dbo.queries_log
-go
-
-set ansi_nulls on
-set quoted_identifier on
-set ansi_padding on
-go
-
-create table dbo.queries_Log (
-        rid               bigint identity ( -9223372036854775808, 1 ) not null
-      , proc_name         sysname           not null
-      , params            xml                   null
-      , [user]            sysname               null
-      , step              int               not null
-      , ds                datetime          not null
-      , dt                datetime          not null
-      , rows_affected     int                   null
-      , [message]         nvarchar(4000)        null
-      , userid            int                   null
-      , begin_rid         bigint                null
-) on ps_queries_log( ds )
-go
-
-alter table dbo.queries_Log add constraint pk_queries_log primary key nonclustered( rid, ds );
-go
-
-create clustered index clix_queries_Log_proc_name_step_ds 
-  on dbo.queries_log ( proc_name, step, ds );
-
-create index ix_queries_Log_begin_rid
-  on dbo.queries_log ( begin_rid, step )
-    where begin_rid is not null;
-go
 
 ------------------------------------------------------------
+-- 2. log table creation script
+
+-- 2.1. create partition function
 
 set ansi_nulls on
 set quoted_identifier on
@@ -104,7 +70,7 @@ begin
 end
 go
 
-------------------------------------------------------------
+-- 2.2. create partition schema
 
 set ansi_nulls on
 set quoted_identifier on
@@ -113,4 +79,41 @@ go
 if ( not exists( select top 1 1 from sys.partition_schemes where name = 'ps_queries_log' ) )
   create partition scheme ps_queries_log
       as partition pf_queries_log all to ( [data] )
+go
+
+-- 2.3. create log table
+
+if object_id( N'dbo.queries_log', 'U' ) is not null
+  drop table dbo.queries_log
+go
+
+set ansi_nulls on
+set quoted_identifier on
+set ansi_padding on
+go
+
+create table dbo.queries_Log (
+        rid               bigint identity ( -9223372036854775808, 1 ) not null
+      , proc_name         sysname           not null
+      , params            xml                   null
+      , [user]            sysname               null
+      , step              int               not null
+      , ds                datetime          not null
+      , dt                datetime          not null
+      , rows_affected     int                   null
+      , [message]         nvarchar(4000)        null
+      , userid            int                   null
+      , begin_rid         bigint                null
+) on ps_queries_log( ds )
+go
+
+alter table dbo.queries_Log add constraint pk_queries_log primary key nonclustered( rid, ds );
+go
+
+create clustered index clix_queries_Log_proc_name_step_ds 
+  on dbo.queries_log ( proc_name, step, ds );
+
+create index ix_queries_Log_begin_rid
+  on dbo.queries_log ( begin_rid, step )
+    where begin_rid is not null;
 go
